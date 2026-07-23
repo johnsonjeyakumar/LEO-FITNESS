@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+<<<<<<< HEAD
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -14,6 +15,9 @@
     "lint:fix": "eslint --fix \"components/**/*.{ts,tsx}\" \"services/**/*.{ts,tsx}\" \"types.ts\" \"App.tsx\"",
     "typecheck": "tsc --noEmit",
     "ci": "npm run lint && npm run typecheck && npm test && npm run build"
+=======
+    "preview": "vite preview"
+>>>>>>> 3c50204b6f6401d3fe61679a14f59cac0e926379
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",
@@ -21,17 +25,24 @@
     "@capacitor/core": "^8.0.0",
     "@capacitor/ios": "^8.0.0",
     "@google/generative-ai": "^0.21.0",
+<<<<<<< HEAD
     "firebase": "^12.15.0",
+=======
+>>>>>>> 3c50204b6f6401d3fe61679a14f59cac0e926379
     "framer-motion": "^12.23.26",
     "lucide-react": "^0.561.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-markdown": "^10.1.0",
+<<<<<<< HEAD
     "react-router-dom": "^7.18.1",
+=======
+>>>>>>> 3c50204b6f6401d3fe61679a14f59cac0e926379
     "recharts": "^3.6.0",
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
+<<<<<<< HEAD
     "@eslint/js": "^10.0.1",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
@@ -49,5 +60,11 @@
     "typescript-eslint": "^8.65.0",
     "vite": "^6.2.0",
     "vitest": "^4.1.10"
+=======
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+>>>>>>> 3c50204b6f6401d3fe61679a14f59cac0e926379
   }
 }

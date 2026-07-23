@@ -25,6 +25,10 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
+<<<<<<< HEAD
   },
   "exclude": ["node_modules", "dist", "coverage", "**/__tests__/**", "setupTests.ts"]
+=======
+  }
+>>>>>>> 3c50204b6f6401d3fe61679a14f59cac0e926379
 }

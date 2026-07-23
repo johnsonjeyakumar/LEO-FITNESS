@@ -1,5 +1,13 @@
+<<<<<<< HEAD
 {
   "projects": {
     "default": "leo-fitness-c0aa7"
   }
 }
+=======
+{
+  "projects": {
+    "default": "leo-fitness-c0aa7"
+  }
+}
+>>>>>>> 3c50204b6f6401d3fe61679a14f59cac0e926379

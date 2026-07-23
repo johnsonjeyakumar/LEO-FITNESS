@@ -45,6 +45,7 @@ export enum SplitPreference {
 
 export interface UserProfile {
   name: string;
+<<<<<<< HEAD
   age?: number;
   weight?: number; // kg
   height?: number; // cm
@@ -73,6 +74,21 @@ export interface UserProfile {
   level?: number;
   currentStreak?: number;
   longestStreak?: number;
+=======
+  age: number;
+  weight: number; // kg
+  height: number; // cm
+  gender: Gender;
+  experience: Experience;
+  daysAvailable: number;
+  goal: Goal;
+  equipment: Equipment;
+  dietType: DietType;
+  splitPreference: SplitPreference;
+  injuries: string;
+
+  completedOnboarding: boolean;
+>>>>>>> 3c50204b6f6401d3fe61679a14f59cac0e926379
 }
 
 export interface Exercise {
@@ -131,7 +147,10 @@ export interface WorkoutSession {
   notes?: string;
   fatigueLevel: 1 | 2 | 3 | 4 | 5; // 1 = fresh, 5 = exhausted
   performanceRating: 1 | 2 | 3 | 4 | 5; // 1 = poor, 5 = excellent
+<<<<<<< HEAD
   intensityRating?: number;
+=======
+>>>>>>> 3c50204b6f6401d3fe61679a14f59cac0e926379
 }
 
 export interface CompletedExercise {
@@ -141,7 +160,10 @@ export interface CompletedExercise {
   weight?: number[];
   muscleGroup: string;
   notes?: string;
+<<<<<<< HEAD
   completed?: boolean;
+=======
+>>>>>>> 3c50204b6f6401d3fe61679a14f59cac0e926379
 }
 
 export interface NutritionEntry {
@@ -153,8 +175,11 @@ export interface NutritionEntry {
   carbs: number;
   fats: number;
   food: string;
+<<<<<<< HEAD
   name?: string;
   timestamp?: number;
+=======
+>>>>>>> 3c50204b6f6401d3fe61679a14f59cac0e926379
 }
 
 export interface AdaptiveTrainingData {
@@ -184,20 +209,28 @@ export interface InsightReport {
     bestPerformingWorkout: string;
     weakestMuscleGroup: string;
     adherenceRate: number;
+<<<<<<< HEAD
     fitnessScore?: number;
     goalCompletion?: number;
     muscleFocus?: any[];
+=======
+>>>>>>> 3c50204b6f6401d3fe61679a14f59cac0e926379
   };
   trends: {
     weightChange: number;
     strengthProgress: number;
     consistencyTrend: 'improving' | 'declining' | 'stable';
+<<<<<<< HEAD
     performanceHistory?: any[];
   };
   recommendations: string[];
   caloriesProteinTrend?: any[];
   durationTrend?: any[];
   prs?: any[];
+=======
+  };
+  recommendations: string[];
+>>>>>>> 3c50204b6f6401d3fe61679a14f59cac0e926379
 }
 
 export interface AnalyticsComparison {
@@ -242,6 +275,7 @@ export interface ProgressExport {
   };
   insights: string[];
 }
+<<<<<<< HEAD
 
 export interface Note {
   id: string;
@@ -298,3 +332,5 @@ export interface MonthlyMilestone {
 }
 
 
+=======
+>>>>>>> 3c50204b6f6401d3fe61679a14f59cac0e926379
