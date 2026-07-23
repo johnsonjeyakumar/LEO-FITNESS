@@ -1,41 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { UserProfile } from '../types';
+import React, { useState } from 'react';
+import { Note } from '../types';
 import { BookOpen, Save, Plus, Trash2, Edit3, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { auth } from '../services/firebase';
+import { firestoreService } from '../services/firestoreService';
 
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  type: 'workout' | 'diet';
-  date: string;
-  timestamp: number;
+interface Props {
+  notes: Note[];
+  onUpdateNotes: (notes: Note[]) => void;
 }
 
 interface NoteCardProps {
   note: Note;
 }
 
-const Notepad: React.FC = () => {
-  const [notes, setNotes] = useState<Note[]>([]);
+const Notepad: React.FC<Props> = ({ notes, onUpdateNotes }) => {
   const [activeTab, setActiveTab] = useState<'workout' | 'diet'>('workout');
   const [isCreating, setIsCreating] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [newNote, setNewNote] = useState({ title: '', content: '' });
 
-  useEffect(() => {
-    const savedNotes = localStorage.getItem('iron_ai_notes');
-    if (savedNotes) {
-      setNotes(JSON.parse(savedNotes));
-    }
-  }, []);
-
-  const saveNotes = (updatedNotes: Note[]) => {
-    setNotes(updatedNotes);
-    localStorage.setItem('iron_ai_notes', JSON.stringify(updatedNotes));
-  };
-
-  const createNote = () => {
+  const createNote = async () => {
     if (!newNote.title.trim() || !newNote.content.trim()) return;
 
     const note: Note = {
@@ -47,29 +32,59 @@ const Notepad: React.FC = () => {
       timestamp: Date.now()
     };
 
+    const uid = auth.currentUser?.uid;
+    if (uid) {
+      try {
+        await firestoreService.saveNote(uid, note);
+      } catch (e) {
+        console.error("Failed to save note to Firestore:", e);
+      }
+    }
+
     const updatedNotes = [note, ...notes];
-    saveNotes(updatedNotes);
+    onUpdateNotes(updatedNotes);
     setNewNote({ title: '', content: '' });
     setIsCreating(false);
   };
 
-  const updateNote = () => {
+  const updateNote = async () => {
     if (!editingNote || !newNote.title.trim() || !newNote.content.trim()) return;
 
+    const updatedNote: Note = {
+      ...editingNote,
+      title: newNote.title,
+      content: newNote.content
+    };
+
+    const uid = auth.currentUser?.uid;
+    if (uid) {
+      try {
+        await firestoreService.saveNote(uid, updatedNote);
+      } catch (e) {
+        console.error("Failed to update note in Firestore:", e);
+      }
+    }
+
     const updatedNotes = notes.map(note =>
-      note.id === editingNote.id
-        ? { ...note, title: newNote.title, content: newNote.content }
-        : note
+      note.id === editingNote.id ? updatedNote : note
     );
-    saveNotes(updatedNotes);
+    onUpdateNotes(updatedNotes);
     setEditingNote(null);
     setNewNote({ title: '', content: '' });
   };
 
-  const deleteNote = (id: string) => {
+  const deleteNote = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this note?')) {
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        try {
+          await firestoreService.deleteNote(uid, id);
+        } catch (e) {
+          console.error("Failed to delete note from Firestore:", e);
+        }
+      }
       const updatedNotes = notes.filter(note => note.id !== id);
-      saveNotes(updatedNotes);
+      onUpdateNotes(updatedNotes);
     }
   };
 
@@ -106,12 +121,14 @@ const Notepad: React.FC = () => {
           <button
             onClick={() => startEdit(note)}
             className="p-2 text-gray-400 hover:text-primary transition-colors"
+            aria-label={`Edit ${note.title}`}
           >
             <Edit3 size={16} />
           </button>
           <button
             onClick={() => deleteNote(note.id)}
             className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+            aria-label={`Delete ${note.title}`}
           >
             <Trash2 size={16} />
           </button>

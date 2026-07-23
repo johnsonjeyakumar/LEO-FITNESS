@@ -45,19 +45,34 @@ export enum SplitPreference {
 
 export interface UserProfile {
   name: string;
-  age: number;
-  weight: number; // kg
-  height: number; // cm
-  gender: Gender;
-  experience: Experience;
-  daysAvailable: number;
-  goal: Goal;
-  equipment: Equipment;
-  dietType: DietType;
-  splitPreference: SplitPreference;
-  injuries: string;
+  age?: number;
+  weight?: number; // kg
+  height?: number; // cm
+  gender?: Gender;
+  experience?: Experience;
+  daysAvailable?: number;
+  goal?: Goal;
+  equipment?: Equipment;
+  dietType?: DietType;
+  splitPreference?: SplitPreference;
+  injuries?: string;
 
   completedOnboarding: boolean;
+  
+  // Firebase fields
+  uid?: string;
+  fullName?: string;
+  email?: string;
+  profileImage?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  onboardingCompleted?: boolean;
+  activityLevel?: string;
+  fitnessGoal?: Goal;
+  xp?: number;
+  level?: number;
+  currentStreak?: number;
+  longestStreak?: number;
 }
 
 export interface Exercise {
@@ -116,6 +131,7 @@ export interface WorkoutSession {
   notes?: string;
   fatigueLevel: 1 | 2 | 3 | 4 | 5; // 1 = fresh, 5 = exhausted
   performanceRating: 1 | 2 | 3 | 4 | 5; // 1 = poor, 5 = excellent
+  intensityRating?: number;
 }
 
 export interface CompletedExercise {
@@ -125,6 +141,7 @@ export interface CompletedExercise {
   weight?: number[];
   muscleGroup: string;
   notes?: string;
+  completed?: boolean;
 }
 
 export interface NutritionEntry {
@@ -136,6 +153,8 @@ export interface NutritionEntry {
   carbs: number;
   fats: number;
   food: string;
+  name?: string;
+  timestamp?: number;
 }
 
 export interface AdaptiveTrainingData {
@@ -165,13 +184,20 @@ export interface InsightReport {
     bestPerformingWorkout: string;
     weakestMuscleGroup: string;
     adherenceRate: number;
+    fitnessScore?: number;
+    goalCompletion?: number;
+    muscleFocus?: any[];
   };
   trends: {
     weightChange: number;
     strengthProgress: number;
     consistencyTrend: 'improving' | 'declining' | 'stable';
+    performanceHistory?: any[];
   };
   recommendations: string[];
+  caloriesProteinTrend?: any[];
+  durationTrend?: any[];
+  prs?: any[];
 }
 
 export interface AnalyticsComparison {
@@ -216,3 +242,59 @@ export interface ProgressExport {
   };
   insights: string[];
 }
+
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  type: 'workout' | 'diet';
+  date: string;
+  timestamp: number;
+}
+
+export interface ProgressEntry {
+  id: string;
+  date: string;
+  weight: number;
+  bodyFat?: number;
+  chest?: number;
+  waist?: number;
+  arms?: number;
+  thigh?: number;
+  shoulders?: number;
+  bmi?: number;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AchievementBadge {
+  id: string;
+  title: string;
+  description: string;
+  unlocked: boolean;
+  unlockedAt?: string;
+  progress: number;
+  target: number;
+  category: string;
+}
+
+export interface WeeklyChallenge {
+  id: string;
+  title: string;
+  description: string;
+  progress: number;
+  target: number;
+  completed: boolean;
+}
+
+export interface MonthlyMilestone {
+  id: string;
+  title: string;
+  description: string;
+  progress: number;
+  target: number;
+  completed: boolean;
+}
+
+

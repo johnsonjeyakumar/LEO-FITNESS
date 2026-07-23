@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { UserProfile, WorkoutPlan, Exercise } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { UserProfile, WorkoutPlan, Exercise, DailyLog } from '../types';
 import { geminiService } from '../services/geminiService';
 import { Dumbbell, Clock, Repeat, RotateCcw, ChevronDown, ChevronUp, Zap, Sparkles, CheckCircle, Play, Pause, Timer, Target, Award, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,7 +8,9 @@ import WorkoutChart from './WorkoutChart';
 interface Props {
   profile: UserProfile;
   plan: WorkoutPlan | null;
-  setPlan: (plan: WorkoutPlan) => void;
+  setPlan: (plan: WorkoutPlan) => Promise<void> | void;
+  logs: DailyLog[];
+  onUpdateLogs: (logs: DailyLog[]) => Promise<void> | void;
 }
 
 interface ExerciseCardProps {
@@ -17,7 +19,7 @@ interface ExerciseCardProps {
   dayName: string;
 }
 
-const WorkoutView: React.FC<Props> = ({ profile, plan, setPlan }) => {
+const WorkoutView: React.FC<Props> = ({ profile, plan, setPlan, logs, onUpdateLogs }) => {
   const [loading, setLoading] = useState(false);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
@@ -25,36 +27,36 @@ const WorkoutView: React.FC<Props> = ({ profile, plan, setPlan }) => {
   const [workoutTimer, setWorkoutTimer] = useState<number>(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
-  const toggleExerciseComplete = (exerciseId: string) => {
-    setCompletedExercises(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(exerciseId)) {
-        newSet.delete(exerciseId);
-      } else {
-        newSet.add(exerciseId);
-      }
+  const toggleExerciseComplete = async (exerciseId: string) => {
+    const newSet = new Set(completedExercises);
+    if (newSet.has(exerciseId)) {
+      newSet.delete(exerciseId);
+    } else {
+      newSet.add(exerciseId);
+    }
+    setCompletedExercises(newSet);
 
-      // Save workout log to localStorage for streak calculation
-      const today = new Date().toDateString();
-      const logs = JSON.parse(localStorage.getItem('iron_ai_logs') || '[]');
-      const todayLogIndex = logs.findIndex((log: any) => log.date === today);
+    // Save workout log via parent callback
+    const today = new Date().toDateString();
+    const updatedLogs = [...logs];
+    const todayLogIndex = updatedLogs.findIndex((log: any) => log.date === today);
 
-      if (todayLogIndex >= 0) {
-        logs[todayLogIndex].workoutCompleted = newSet.size > 0;
-      } else {
-        logs.push({
-          date: today,
-          workoutCompleted: newSet.size > 0,
-          waterIntake: 0,
-          sleepHours: 0,
-          mood: 'Good'
-        });
-      }
+    if (todayLogIndex >= 0) {
+      updatedLogs[todayLogIndex] = {
+        ...updatedLogs[todayLogIndex],
+        workoutCompleted: newSet.size > 0
+      };
+    } else {
+      updatedLogs.push({
+        date: today,
+        workoutCompleted: newSet.size > 0,
+        waterIntake: 0,
+        sleepHours: 0,
+        mood: 'Good'
+      });
+    }
 
-      localStorage.setItem('iron_ai_logs', JSON.stringify(logs));
-
-      return newSet;
-    });
+    await onUpdateLogs(updatedLogs);
   };
 
   const formatTime = (seconds: number) => {
@@ -63,12 +65,42 @@ const WorkoutView: React.FC<Props> = ({ profile, plan, setPlan }) => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (isTimerRunning) {
+      timerRef.current = setInterval(() => {
+        setWorkoutTimer((prev) => prev + 1);
+      }, 1000);
+    } else if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [isTimerRunning]);
+
+  const toggleTimer = (dayName: string) => {
+    if (currentWorkout === dayName && isTimerRunning) {
+      setIsTimerRunning(false);
+    } else {
+      if (currentWorkout !== dayName) {
+        setCurrentWorkout(dayName);
+        setWorkoutTimer(0);
+      }
+      setIsTimerRunning(true);
+    }
+  };
+
   const generate = async () => {
     setLoading(true);
     try {
       const newPlan = await geminiService.generateWorkout(profile);
-      setPlan(newPlan);
-      localStorage.setItem('iron_ai_plan', JSON.stringify(newPlan));
+      await setPlan(newPlan);
     } catch (e) {
       console.error(e);
       alert("Failed to generate workout. Please check your API key.");
@@ -299,6 +331,18 @@ const WorkoutView: React.FC<Props> = ({ profile, plan, setPlan }) => {
                     )}
                   </div>
                   <div className="flex items-center gap-2 sm:gap-4">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleTimer(day.dayName); }}
+                      className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-mono transition-colors ${
+                        currentWorkout === day.dayName && isTimerRunning
+                          ? 'bg-primary/20 text-primary border border-primary/30'
+                          : 'text-gray-500 border border-white/10 hover:text-primary hover:border-primary/30'
+                      }`}
+                      aria-label={currentWorkout === day.dayName && isTimerRunning ? 'Pause timer' : 'Start timer'}
+                    >
+                      {currentWorkout === day.dayName && isTimerRunning ? <Pause size={12} /> : <Play size={12} />}
+                      {currentWorkout === day.dayName ? formatTime(workoutTimer) : 'TIMER'}
+                    </button>
                     <span className="text-xs text-gray-500 font-mono border border-white/10 px-2 py-1 rounded">{day.exercises.length} EXERCISES</span>
                     <span className="text-xs text-green-400 font-mono border border-green-500/30 px-2 py-1 rounded bg-green-500/10">
                       {Array.from(completedExercises).filter((id: string) => id.startsWith(`${day.dayName}-`)).length} / {day.exercises.length} DONE

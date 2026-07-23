@@ -1,27 +1,19 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { UserProfile, Goal, MacroGoals, Gender } from '../types';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { Utensils, Apple, Coffee, Moon, Plus, Edit2, Trash2, Check, X, Target, TrendingUp } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { UserProfile, Goal, MacroGoals, Gender, NutritionEntry } from '../types';
+import { Utensils, Apple, Plus, Edit2, Trash2, Check, X, Target } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { auth } from '../services/firebase';
+import { firestoreService } from '../services/firestoreService';
 
 interface Props {
   profile: UserProfile;
+  entries: NutritionEntry[];
+  onUpdateEntries: (entries: NutritionEntry[]) => void;
 }
 
-interface NutritionEntry {
-  id: string;
-  name: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fats: number;
-  timestamp: number;
-}
-
-const Nutrition: React.FC<Props> = ({ profile }) => {
-  const [entries, setEntries] = useState<NutritionEntry[]>([]);
+const Nutrition: React.FC<Props> = ({ profile, entries, onUpdateEntries }) => {
   const [showAddForm, setShowAddForm] = useState(false);
-  const [editingEntry, setEditingEntry] = useState<NutritionEntry | null>(null);
+  const [editingEntry, setEditingEntry] = useState<any | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     calories: '',
@@ -29,19 +21,6 @@ const Nutrition: React.FC<Props> = ({ profile }) => {
     carbs: '',
     fats: ''
   });
-
-  // Load entries from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('nutrition_entries');
-    if (saved) {
-      setEntries(JSON.parse(saved));
-    }
-  }, []);
-
-  // Save entries to localStorage
-  useEffect(() => {
-    localStorage.setItem('nutrition_entries', JSON.stringify(entries));
-  }, [entries]);
 
   // Calculate daily macro goals based on user profile
   const dailyGoals = useMemo<MacroGoals>(() => {
@@ -82,10 +61,10 @@ const Nutrition: React.FC<Props> = ({ profile }) => {
     fats: Math.min((todayTotals.fats / dailyGoals.fats) * 100, 100)
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const entry: NutritionEntry = {
+    const entry: any = {
       id: editingEntry?.id || Date.now().toString(),
       name: formData.name,
       calories: parseInt(formData.calories) || 0,
@@ -95,21 +74,34 @@ const Nutrition: React.FC<Props> = ({ profile }) => {
       timestamp: editingEntry?.timestamp || Date.now()
     };
 
+    const uid = auth.currentUser?.uid;
+    if (uid) {
+      try {
+        await firestoreService.saveNutritionEntry(uid, entry);
+      } catch (error) {
+        console.error("Failed to save nutrition entry to Firestore:", error);
+      }
+    }
+
+    const updated = editingEntry
+      ? entries.map((e: any) => e.id === entry.id ? entry : e)
+      : [entry, ...entries];
+    
+    onUpdateEntries(updated);
+
     if (editingEntry) {
-      setEntries(prev => prev.map(e => e.id === entry.id ? entry : e));
       setEditingEntry(null);
     } else {
-      setEntries(prev => [...prev, entry]);
+      setShowAddForm(false);
     }
 
     setFormData({ name: '', calories: '', protein: '', carbs: '', fats: '' });
-    setShowAddForm(false);
   };
 
-  const handleEdit = (entry: NutritionEntry) => {
+  const handleEdit = (entry: any) => {
     setEditingEntry(entry);
     setFormData({
-      name: entry.name,
+      name: entry.name || entry.meal || entry.food || '',
       calories: entry.calories.toString(),
       protein: entry.protein.toString(),
       carbs: entry.carbs.toString(),
@@ -118,8 +110,19 @@ const Nutrition: React.FC<Props> = ({ profile }) => {
     setShowAddForm(true);
   };
 
-  const handleDelete = (id: string) => {
-    setEntries(prev => prev.filter(e => e.id !== id));
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Delete this entry?')) {
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        try {
+          await firestoreService.deleteNutritionEntry(uid, id);
+        } catch (error) {
+          console.error("Failed to delete nutrition entry from Firestore:", error);
+        }
+      }
+      const updated = entries.filter((e: any) => e.id !== id);
+      onUpdateEntries(updated);
+    }
   };
 
   const cancelEdit = () => {
@@ -268,6 +271,7 @@ const Nutrition: React.FC<Props> = ({ profile }) => {
                 <button
                   onClick={cancelEdit}
                   className="text-gray-400 hover:text-white"
+                  aria-label="Close form"
                 >
                   <X size={24} />
                 </button>
@@ -390,12 +394,14 @@ const Nutrition: React.FC<Props> = ({ profile }) => {
                     <button
                       onClick={() => handleEdit(entry)}
                       className="p-2 text-gray-400 hover:text-blue-400 transition-colors"
+                      aria-label={`Edit ${entry.name}`}
                     >
                       <Edit2 size={16} />
                     </button>
                     <button
                       onClick={() => handleDelete(entry.id)}
                       className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                      aria-label={`Delete ${entry.name}`}
                     >
                       <Trash2 size={16} />
                     </button>

@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserProfile, ChatMessage } from '../types';
 import { geminiService } from '../services/geminiService';
-import { Send, Volume2, Loader2, User, RefreshCw, Copy, Check } from 'lucide-react';
+import { Send, Volume2, Loader2, RefreshCw } from 'lucide-react';
+import { auth } from '../services/firebase';
+import { contextBuilderService } from '../services/contextBuilderService';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -83,16 +85,28 @@ I am **Leo**. Your elite strength and conditioning commander.
     setLoading(true);
 
     try {
-      // Gather context
-      const notepad = localStorage.getItem('iron_ai_notepad') || '';
-      const logs = localStorage.getItem('iron_ai_logs') || '[]';
-      const nutrition = localStorage.getItem('iron_ai_nutrition') || '[]';
+      // Gather context from Firestore
+      const uid = auth.currentUser?.uid;
+      let context = '';
+      if (uid) {
+        try {
+          context = await contextBuilderService.buildUserContext(uid);
+        } catch (e) {
+          console.error('Failed to build context from Firestore:', e);
+        }
+      }
 
-      const context = `
+      // Fallback to local storage context if Firestore context is empty or failed
+      if (!context) {
+        const notepad = localStorage.getItem('iron_ai_notepad') || '';
+        const logs = localStorage.getItem('iron_ai_logs') || '[]';
+        const nutrition = localStorage.getItem('iron_ai_nutrition') || '[]';
+        context = `
 Notepad Entries: ${notepad.substring(0, 500)}...
 Recent Workout Logs: ${logs.substring(0, 500)}...
 Recent Nutrition: ${nutrition.substring(0, 500)}...
-      `;
+        `;
+      }
 
       // Get full response
       const responseText = await geminiService.chatWithCoach(messages, userMsg.text, profile, context);
@@ -171,7 +185,7 @@ Recent Nutrition: ${nutrition.substring(0, 500)}...
             </div>
           </div>
         </div>
-        <button className="text-gray-500 hover:text-white transition-colors" title="Clear Chat" onClick={() => setMessages([messages[0]])}>
+        <button className="text-gray-500 hover:text-white transition-colors" title="Clear Chat" aria-label="Clear Chat" onClick={() => setMessages([messages[0]])}>
           <RefreshCw size={18} />
         </button>
       </div>
@@ -211,6 +225,7 @@ Recent Nutrition: ${nutrition.substring(0, 500)}...
                     onClick={() => playTTS(msg.text, msg.id)}
                     className={`p-1.5 rounded-full bg-black/50 border border-white/10 text-gray-400 hover:text-primary transition-colors ${speakingId === msg.id ? 'text-primary animate-pulse border-primary/50' : ''}`}
                     title="Read Aloud"
+                    aria-label="Read Aloud"
                   >
                     <Volume2 size={12} />
                   </button>

@@ -3,7 +3,6 @@ import { UserProfile, Gender, Experience, Goal, Equipment, DietType, SplitPrefer
 import { ChevronRight, Activity, Dumbbell, Target, AlertCircle, Utensils, Check, Layers } from 'lucide-react';
 
 import { motion, AnimatePresence, Variants } from 'framer-motion';
-import { div } from 'framer-motion/client';
 
 interface Props {
    onComplete: (profile: UserProfile) => void;

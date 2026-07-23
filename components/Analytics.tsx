@@ -6,8 +6,8 @@ import {
   PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
 import {
-  TrendingUp, TrendingDown, Minus, Download, Share2, Calendar, Target,
-  Award, BarChart3, PieChart as PieChartIcon, Activity, Zap, Trophy
+  TrendingUp, TrendingDown, Minus, Download, Share2, Target,
+  Award, BarChart3, Activity, Zap, Trophy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -96,6 +96,13 @@ const Analytics: React.FC<Props> = ({ profile }) => {
     }
   };
 
+  const statColorMap: Record<string, string> = {
+    'from-blue-500 to-blue-600': 'text-blue-400',
+    'from-orange-500 to-red-500': 'text-orange-400',
+    'from-green-500 to-emerald-500': 'text-green-400',
+    'from-purple-500 to-pink-500': 'text-purple-400',
+  };
+
   const StatCard = ({ title, value, change, icon: Icon, color, delay }: any) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -103,7 +110,10 @@ const Analytics: React.FC<Props> = ({ profile }) => {
       transition={{ delay }}
       className="bg-card border border-white/5 rounded-xl p-6 relative overflow-hidden group hover:border-primary/50 transition-all"
     >
-      <div className={`absolute -right-6 -top-6 w-32 h-32 rounded-full bg-gradient-to-br ${color} opacity-10 group-hover:opacity-20 blur-2xl transition-all duration-500`} />
+      <div
+        className="absolute -right-6 -top-6 w-32 h-32 rounded-full opacity-10 group-hover:opacity-20 blur-2xl transition-all duration-500"
+        style={{ background: `linear-gradient(135deg, ${color.replace('from-', '').replace(' to-', ',')})` }}
+      />
 
       <div className="flex justify-between items-start mb-4 relative z-10">
         <div>
@@ -126,12 +136,18 @@ const Analytics: React.FC<Props> = ({ profile }) => {
             </div>
           )}
         </div>
-        <div className={`p-3 rounded bg-white/5 text-${color.split('-')[1]}-400`}>
+        <div className={`p-3 rounded bg-white/5 ${statColorMap[color] || 'text-white'}`}>
           <Icon size={20} />
         </div>
       </div>
     </motion.div>
   );
+
+  const insightColorMap: Record<string, string> = {
+    yellow: 'bg-yellow-500/20 text-yellow-400',
+    red: 'bg-red-500/20 text-red-400',
+    blue: 'bg-blue-500/20 text-blue-400',
+  };
 
   const InsightCard = ({ title, value, subtitle, icon: Icon, color }: any) => (
     <motion.div
@@ -140,7 +156,7 @@ const Analytics: React.FC<Props> = ({ profile }) => {
       className="bg-card border border-white/5 rounded-lg p-4 hover:border-primary/30 transition-all"
     >
       <div className="flex items-center gap-3">
-        <div className={`p-2 rounded bg-${color}-500/20 text-${color}-400`}>
+        <div className={`p-2 rounded ${insightColorMap[color] || 'bg-white/20 text-white'}`}>
           <Icon size={16} />
         </div>
         <div>
@@ -268,35 +284,36 @@ const Analytics: React.FC<Props> = ({ profile }) => {
                   <div className="bg-card border border-white/5 rounded-xl p-6">
                     <h3 className="text-xl font-display font-bold text-white mb-6 uppercase">Performance Trends</h3>
                     <div className="h-[300px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={insightReport.summary.totalWorkouts > 0 ? [
-                          { name: 'Week 1', performance: 75 },
-                          { name: 'Week 2', performance: 82 },
-                          { name: 'Week 3', performance: 78 },
-                          { name: 'Week 4', performance: 85 }
-                        ] : []}>
-                          <defs>
-                            <linearGradient id="performanceGradient" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#ff5e00" stopOpacity={0.4}/>
-                              <stop offset="95%" stopColor="#ff5e00" stopOpacity={0}/>
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                          <XAxis dataKey="name" stroke="#666" />
-                          <YAxis stroke="#666" domain={[0, 100]} />
-                          <Tooltip
-                            contentStyle={{ backgroundColor: '#000', borderColor: '#333', color: '#fff' }}
-                          />
-                          <Area
-                            type="monotone"
-                            dataKey="performance"
-                            stroke="#ff5e00"
-                            fillOpacity={1}
-                            fill="url(#performanceGradient)"
-                            strokeWidth={3}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
+                      {insightReport.trends.performanceHistory && insightReport.trends.performanceHistory.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={insightReport.trends.performanceHistory}>
+                            <defs>
+                              <linearGradient id="performanceGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#ff5e00" stopOpacity={0.4}/>
+                                <stop offset="95%" stopColor="#ff5e00" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                            <XAxis dataKey="name" stroke="#666" />
+                            <YAxis stroke="#666" domain={[0, 100]} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: '#000', borderColor: '#333', color: '#fff' }}
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="performance"
+                              stroke="#ff5e00"
+                              fillOpacity={1}
+                              fill="url(#performanceGradient)"
+                              strokeWidth={3}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+                          No performance history logged in this period.
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -304,38 +321,32 @@ const Analytics: React.FC<Props> = ({ profile }) => {
                   <div className="bg-card border border-white/5 rounded-xl p-6">
                     <h3 className="text-xl font-display font-bold text-white mb-6 uppercase">Muscle Focus</h3>
                     <div className="h-[300px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={[
-                              { name: 'Chest', value: 25, fill: '#ff5e00' },
-                              { name: 'Back', value: 20, fill: '#ff8533' },
-                              { name: 'Legs', value: 30, fill: '#ffa366' },
-                              { name: 'Shoulders', value: 15, fill: '#ffbf80' },
-                              { name: 'Arms', value: 10, fill: '#ffdbcc' }
-                            ]}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={100}
-                            paddingAngle={5}
-                            dataKey="value"
-                          >
-                            {[
-                              { name: 'Chest', value: 25, fill: '#ff5e00' },
-                              { name: 'Back', value: 20, fill: '#ff8533' },
-                              { name: 'Legs', value: 30, fill: '#ffa366' },
-                              { name: 'Shoulders', value: 15, fill: '#ffbf80' },
-                              { name: 'Arms', value: 10, fill: '#ffdbcc' }
-                            ].map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.fill} />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            contentStyle={{ backgroundColor: '#000', borderColor: '#333', color: '#fff' }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
+                      {insightReport.summary.muscleFocus && insightReport.summary.muscleFocus.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={insightReport.summary.muscleFocus}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={100}
+                              paddingAngle={5}
+                              dataKey="value"
+                            >
+                              {insightReport.summary.muscleFocus.map((entry: any, index: number) => (
+                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              contentStyle={{ backgroundColor: '#000', borderColor: '#333', color: '#fff' }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+                          No workout data for muscle focus.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -365,6 +376,131 @@ const Analytics: React.FC<Props> = ({ profile }) => {
                   />
                 </div>
 
+                {/* Advanced Analytics Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* AI Fitness Score & Goal Adherence */}
+                  <div className="bg-card border border-white/5 rounded-xl p-6">
+                    <h3 className="text-xl font-display font-bold text-white mb-6 uppercase flex items-center gap-2">
+                      <Trophy className="text-primary w-5 h-5" /> Advanced Fitness Metrics
+                    </h3>
+                    <div className="space-y-6">
+                      <div>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm text-gray-400 font-bold uppercase">AI Fitness Score</span>
+                          <span className="text-xl font-display font-bold text-primary">{insightReport.summary.fitnessScore || 0} / 100</span>
+                        </div>
+                        <div className="w-full bg-gray-800 h-3 rounded-full overflow-hidden">
+                          <div 
+                            className="bg-primary h-full rounded-full transition-all duration-500" 
+                            style={{ width: `${insightReport.summary.fitnessScore || 0}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">Calculated based on training consistency, nutrition targets, and progress logging.</p>
+                      </div>
+
+                      <div className="pt-4 border-t border-white/5">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm text-gray-400 font-bold uppercase">Goal Completion Rate</span>
+                          <span className="text-xl font-display font-bold text-green-400">{insightReport.summary.goalCompletion || 0}%</span>
+                        </div>
+                        <div className="w-full bg-gray-800 h-3 rounded-full overflow-hidden">
+                          <div 
+                            className="bg-green-400 h-full rounded-full transition-all duration-500" 
+                            style={{ width: `${insightReport.summary.goalCompletion || 0}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">Adherence to weekly volume and macronutrient targets.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Personal Records (PRs) */}
+                  <div className="bg-card border border-white/5 rounded-xl p-6">
+                    <h3 className="text-xl font-display font-bold text-white mb-6 uppercase flex items-center gap-2">
+                      <Award className="text-primary w-5 h-5" /> Personal Records (PRs)
+                    </h3>
+                    <div className="max-h-[220px] overflow-y-auto pr-2 space-y-3">
+                      {insightReport.prs && insightReport.prs.length > 0 ? (
+                        insightReport.prs.map((pr: any, idx: number) => (
+                          <div key={idx} className="flex justify-between items-center py-2 border-b border-white/5 text-sm">
+                            <span className="text-gray-300 font-medium">{pr.exercise}</span>
+                            <span className="text-white font-bold">{pr.weight} kg</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center text-gray-500 py-12 text-sm">
+                          Log workouts with weights to establish Personal Records.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Additional Charts Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Calories & Protein Trend Chart */}
+                  <div className="bg-card border border-white/5 rounded-xl p-6">
+                    <h3 className="text-xl font-display font-bold text-white mb-6 uppercase flex items-center gap-2">
+                      <Activity className="text-primary w-5 h-5" /> Calories & Protein Trend
+                    </h3>
+                    <div className="h-[250px]">
+                      {insightReport.caloriesProteinTrend && insightReport.caloriesProteinTrend.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={insightReport.caloriesProteinTrend}>
+                            <defs>
+                              <linearGradient id="calGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#ff5e00" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#ff5e00" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                            <XAxis dataKey="date" stroke="#666" tick={{ fill: '#888', fontSize: 10 }} />
+                            <YAxis yAxisId="left" stroke="#666" tick={{ fill: '#888' }} />
+                            <YAxis yAxisId="right" orientation="right" stroke="#666" tick={{ fill: '#888' }} />
+                            <Tooltip contentStyle={{ backgroundColor: '#0f0f0f', borderColor: '#ffffff20', color: '#fff' }} />
+                            <Area yAxisId="left" type="monotone" dataKey="calories" stroke="#ff5e00" fill="url(#calGradient)" strokeWidth={2.5} name="Calories (kcal)" />
+                            <Line yAxisId="right" type="monotone" dataKey="protein" stroke="#3b82f6" strokeWidth={2} name="Protein (g)" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+                          No nutrition entries logged in this period.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Workout Duration Trend */}
+                  <div className="bg-card border border-white/5 rounded-xl p-6">
+                    <h3 className="text-xl font-display font-bold text-white mb-6 uppercase flex items-center gap-2">
+                      <Zap className="text-primary w-5 h-5" /> Workout Duration Trend (min)
+                    </h3>
+                    <div className="h-[250px]">
+                      {insightReport.durationTrend && insightReport.durationTrend.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={insightReport.durationTrend}>
+                            <defs>
+                              <linearGradient id="durGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                            <XAxis dataKey="date" stroke="#666" tick={{ fill: '#888', fontSize: 10 }} />
+                            <YAxis stroke="#666" tick={{ fill: '#888' }} />
+                            <Tooltip contentStyle={{ backgroundColor: '#0f0f0f', borderColor: '#ffffff20', color: '#fff' }} />
+                            <Area type="monotone" dataKey="duration" stroke="#10b981" fill="url(#durGradient)" strokeWidth={2.5} name="Duration (min)" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+                          No completed workout sessions logged in this period.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Recommendations */}
                 {insightReport.recommendations.length > 0 && (
                   <div className="bg-card border border-white/5 rounded-xl p-6">
@@ -390,8 +526,13 @@ const Analytics: React.FC<Props> = ({ profile }) => {
                 )}
               </>
             ) : (
-              <div className="text-center py-20 text-gray-500">
-                No data available for insights
+              <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+                <BarChart3 className="w-16 h-16 text-gray-700 mb-4" />
+                <p className="text-lg font-display font-bold text-white mb-2">No data yet</p>
+                <p className="text-sm text-gray-500 max-w-md text-center">
+                  Complete a few workouts and log your nutrition to unlock insights,
+                  performance trends, and personalized recommendations.
+                </p>
               </div>
             )}
           </motion.div>
@@ -496,8 +637,13 @@ const Analytics: React.FC<Props> = ({ profile }) => {
                 </div>
               </>
             ) : (
-              <div className="text-center py-20 text-gray-500">
-                No comparison data available
+              <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+                <Activity className="w-16 h-16 text-gray-700 mb-4" />
+                <p className="text-lg font-display font-bold text-white mb-2">No comparison data</p>
+                <p className="text-sm text-gray-500 max-w-md text-center">
+                  Log data across multiple periods to compare your performance and see
+                  how your consistency and results evolve over time.
+                </p>
               </div>
             )}
           </motion.div>
@@ -610,8 +756,13 @@ const Analytics: React.FC<Props> = ({ profile }) => {
                 </div>
               </>
             ) : (
-              <div className="text-center py-20 text-gray-500">
-                No progress data available for export
+              <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+                <Download className="w-16 h-16 text-gray-700 mb-4" />
+                <p className="text-lg font-display font-bold text-white mb-2">Nothing to export yet</p>
+                <p className="text-sm text-gray-500 max-w-md text-center">
+                  Complete workouts, track nutrition, and log measurements to build
+                  a comprehensive progress report you can export or share.
+                </p>
               </div>
             )}
           </motion.div>

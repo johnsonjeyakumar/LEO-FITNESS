@@ -1,35 +1,40 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { UserProfile, WorkoutPlan } from '../types';
-import { Trophy, Flame, Activity, TrendingUp, Droplets, Dumbbell, Target, Calendar, CheckCircle, X } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { UserProfile, WorkoutPlan, DailyLog, NutritionEntry } from '../types';
+import { Trophy, Flame, Activity, TrendingUp, Dumbbell, Target, Calendar, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface Props {
   profile: UserProfile;
   workoutPlan: WorkoutPlan | null;
+  logs: DailyLog[];
+  nutritionEntries: NutritionEntry[];
 }
 
-const Dashboard: React.FC<Props> = ({ profile, workoutPlan }) => {
+const Dashboard: React.FC<Props> = ({ profile, workoutPlan, logs, nutritionEntries }) => {
   // Calculate streaks for workouts and nutrition
   const streaks = useMemo(() => {
     try {
-      const logs = JSON.parse(localStorage.getItem('iron_ai_logs') || '[]');
-      const nutritionEntries = JSON.parse(localStorage.getItem('nutrition_entries') || '[]');
-
       let workoutStreak = 0;
       let nutritionStreak = 0;
       const today = new Date().toDateString();
 
-      // Check if today is logged for workouts
-      const todayWorkoutLog = logs.find((log: any) => log.date === today);
-      if (todayWorkoutLog?.workoutCompleted) {
-        workoutStreak = 1;
-        // Count consecutive days backwards from today
-        for (let i = 1; i < logs.length; i++) {
-          const logDate = new Date(logs[i].date);
-          const expectedDate = new Date();
-          expectedDate.setDate(expectedDate.getDate() - i);
+      const workoutLogByDate = new Map<string, boolean>();
+      logs.forEach((log: any) => {
+        if (log.date && log.workoutCompleted) {
+          workoutLogByDate.set(
+            new Date(log.date).toDateString(),
+            true
+          );
+        }
+      });
 
-          if (logDate.toDateString() === expectedDate.toDateString() && logs[i].workoutCompleted) {
+      if (workoutLogByDate.has(today)) {
+        workoutStreak = 1;
+        const maxDays = Math.max(workoutLogByDate.size, 365);
+        for (let i = 1; i < maxDays; i++) {
+          const checkDate = new Date();
+          checkDate.setDate(checkDate.getDate() - i);
+          if (workoutLogByDate.has(checkDate.toDateString())) {
             workoutStreak++;
           } else {
             break;
@@ -37,23 +42,22 @@ const Dashboard: React.FC<Props> = ({ profile, workoutPlan }) => {
         }
       }
 
-      // Check if today has nutrition entries
-      const todayNutritionEntries = nutritionEntries.filter((entry: any) =>
-        new Date(entry.timestamp).toDateString() === today
-      );
-      if (todayNutritionEntries.length > 0) {
+      const nutritionDates = new Set<string>();
+      nutritionEntries.forEach((entry: any) => {
+        if (entry.timestamp) {
+          nutritionDates.add(
+            new Date(entry.timestamp).toDateString()
+          );
+        }
+      });
+
+      if (nutritionDates.has(today)) {
         nutritionStreak = 1;
-        // Count consecutive days backwards from today
-        for (let i = 1; ; i++) {
+        const maxDays = Math.max(nutritionDates.size, 365);
+        for (let i = 1; i < maxDays; i++) {
           const checkDate = new Date();
           checkDate.setDate(checkDate.getDate() - i);
-          const checkDateString = checkDate.toDateString();
-
-          const dayEntries = nutritionEntries.filter((entry: any) =>
-            new Date(entry.timestamp).toDateString() === checkDateString
-          );
-
-          if (dayEntries.length > 0) {
+          if (nutritionDates.has(checkDate.toDateString())) {
             nutritionStreak++;
           } else {
             break;
@@ -65,12 +69,11 @@ const Dashboard: React.FC<Props> = ({ profile, workoutPlan }) => {
     } catch (e) {
       return { workoutStreak: 0, nutritionStreak: 0 };
     }
-  }, []);
+  }, [logs, nutritionEntries]);
 
   // Calculate basic stats
   const stats = useMemo(() => {
     try {
-      const logs = JSON.parse(localStorage.getItem('iron_ai_logs') || '[]');
       const workoutsCompleted = logs.filter((log: any) => log.workoutCompleted).length;
       const totalCalories = logs.reduce((sum: number, log: any) => sum + (log.caloriesBurned || 0), 0);
 
@@ -86,7 +89,7 @@ const Dashboard: React.FC<Props> = ({ profile, workoutPlan }) => {
         currentWeight: profile.weight
       };
     }
-  }, [profile.weight]);
+  }, [logs, profile.weight]);
 
   const StatCard = ({ title, value, icon: Icon, delay, subtitle }: any) => (
     <motion.div
@@ -230,8 +233,9 @@ const Dashboard: React.FC<Props> = ({ profile, workoutPlan }) => {
             </div>
           ) : (
             <div className="text-center py-8">
-              <Dumbbell className="mx-auto text-gray-600 mb-4" size={48} />
-              <p className="text-gray-400">No workout plan available</p>
+              <Dumbbell className="mx-auto text-gray-700 mb-4" size={48} />
+              <p className="text-white font-display font-bold mb-1">No workout plan yet</p>
+              <p className="text-gray-500 text-sm">Go to the Workout tab to generate your AI-powered plan</p>
             </div>
           )}
         </motion.div>

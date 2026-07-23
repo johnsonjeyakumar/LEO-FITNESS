@@ -6,7 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint \"components/**/*.{ts,tsx}\" \"services/**/*.{ts,tsx}\" \"types.ts\" \"App.tsx\"",
+    "lint:fix": "eslint --fix \"components/**/*.{ts,tsx}\" \"services/**/*.{ts,tsx}\" \"types.ts\" \"App.tsx\"",
+    "typecheck": "tsc --noEmit",
+    "ci": "npm run lint && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",
@@ -14,18 +21,33 @@
     "@capacitor/core": "^8.0.0",
     "@capacitor/ios": "^8.0.0",
     "@google/generative-ai": "^0.21.0",
+    "firebase": "^12.15.0",
     "framer-motion": "^12.23.26",
     "lucide-react": "^0.561.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.18.1",
     "recharts": "^3.6.0",
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/runner": "^4.1.10",
+    "c8": "^12.0.0",
+    "eslint": "^10.7.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "jsdom": "^29.1.1",
     "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "typescript-eslint": "^8.65.0",
+    "vite": "^6.2.0",
+    "vitest": "^4.1.10"
   }
 }

@@ -6,8 +6,11 @@ import {
   InsightReport,
   AnalyticsComparison,
   ProgressExport,
-  DailyLog
+  DailyLog,
+  ProgressEntry
 } from '../types';
+import { auth } from './firebase';
+import { firestoreService } from './firestoreService';
 
 class AdaptiveTrainingService {
   private userId: string;
@@ -18,9 +21,9 @@ class AdaptiveTrainingService {
 
   // Analyze user data and generate adaptive training recommendations
   async analyzeUserData(profile: UserProfile): Promise<AdaptiveTrainingData> {
-    const sessions = this.getWorkoutSessions();
-    const nutrition = this.getNutritionEntries();
-    const logs = this.getDailyLogs();
+    const sessions = await this.getWorkoutSessions();
+    const nutrition = await this.getNutritionEntries();
+    const logs = await this.getDailyLogs();
 
     const consistencyScore = this.calculateConsistencyScore(sessions, logs);
     const fatigueTrend = this.calculateFatigueTrend(sessions);
@@ -50,9 +53,9 @@ class AdaptiveTrainingService {
 
   // Generate insight reports
   async generateInsightReport(period: 'weekly' | 'monthly'): Promise<InsightReport> {
-    const sessions = this.getWorkoutSessions();
-    const nutrition = this.getNutritionEntries();
-    const logs = this.getDailyLogs();
+    const sessions = await this.getWorkoutSessions();
+    const nutrition = await this.getNutritionEntries();
+    const logs = await this.getDailyLogs();
 
     const { startDate, endDate } = this.getPeriodDates(period);
 
@@ -63,22 +66,151 @@ class AdaptiveTrainingService {
       n.date >= startDate && n.date <= endDate
     );
 
+    // 1. Calories and Protein Trend
+    const caloriesProteinTrend: any[] = [];
+    const groupedNutrition: Record<string, { calories: number; protein: number }> = {};
+    periodNutrition.forEach(n => {
+      const dStr = n.date || new Date(n.timestamp).toISOString().split('T')[0];
+      if (!groupedNutrition[dStr]) {
+        groupedNutrition[dStr] = { calories: 0, protein: 0 };
+      }
+      groupedNutrition[dStr].calories += n.calories || 0;
+      groupedNutrition[dStr].protein += n.protein || 0;
+    });
+    Object.entries(groupedNutrition)
+      .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+      .forEach(([date, val]) => {
+        caloriesProteinTrend.push({
+          date: new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+          calories: val.calories,
+          protein: val.protein
+        });
+      });
+
+    // 2. Workout Duration Trend
+    const durationTrend: any[] = [];
+    const groupedDuration: Record<string, number> = {};
+    periodSessions.forEach(s => {
+      const dStr = s.date;
+      groupedDuration[dStr] = (groupedDuration[dStr] || 0) + (s.duration || 0);
+    });
+    Object.entries(groupedDuration)
+      .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+      .forEach(([date, dur]) => {
+        durationTrend.push({
+          date: new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+          duration: dur
+        });
+      });
+
+    // 3. Personal Records (PRs)
+    const prs: { exercise: string; weight: number }[] = [];
+    const prMap: Record<string, number> = {};
+    sessions.forEach(s => {
+      s.exercises.forEach(ex => {
+        if (ex.weight && ex.weight.length > 0) {
+          const maxWeight = Math.max(...ex.weight.filter(w => typeof w === 'number' && w > 0));
+          if (maxWeight > 0) {
+            if (!prMap[ex.name] || maxWeight > prMap[ex.name]) {
+              prMap[ex.name] = maxWeight;
+            }
+          }
+        }
+      });
+    });
+    Object.entries(prMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .forEach(([exercise, weight]) => {
+        prs.push({ exercise, weight });
+      });
+
+    // 4. Muscle Focus Data (Pie Chart compatible list)
+    const muscleMap: Record<string, number> = {};
+    periodSessions.forEach(s => {
+      s.exercises.forEach(ex => {
+        if (ex.muscleGroup) {
+          muscleMap[ex.muscleGroup] = (muscleMap[ex.muscleGroup] || 0) + (ex.sets || 1);
+        }
+      });
+    });
+    const sliceColors = ['#ff5e00', '#fbbf24', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f97316'];
+    const muscleFocus = Object.entries(muscleMap).map(([name, value], idx) => ({
+      name,
+      value,
+      fill: sliceColors[idx % sliceColors.length]
+    }));
+
+    // 5. Performance History Area Chart data
+    const performanceHistory: any[] = [];
+    const groupedPerformance: Record<string, { ratingSum: number; count: number }> = {};
+    periodSessions.forEach(s => {
+      const dStr = s.date;
+      if (!groupedPerformance[dStr]) {
+        groupedPerformance[dStr] = { ratingSum: 0, count: 0 };
+      }
+      groupedPerformance[dStr].ratingSum += s.performanceRating || 3;
+      groupedPerformance[dStr].count += 1;
+    });
+    Object.entries(groupedPerformance)
+      .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+      .forEach(([date, val]) => {
+        performanceHistory.push({
+          name: new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+          performance: Math.round((val.ratingSum / val.count) * 20)
+        });
+      });
+
+    // 6. AI Fitness Score & Goal Completion
+    const consistencyScore = this.calculateConsistencyScore(periodSessions, logs);
+    
+    const weekDuration = period === 'weekly' ? 1 : 4.3;
+    const targetWorkouts = Math.round(3 * weekDuration);
+    const workoutsScore = Math.min(Math.round((periodSessions.length / Math.max(targetWorkouts, 1)) * 100), 100);
+
+    const targetProtein = 130;
+    const avgProtein = periodNutrition.length > 0
+      ? periodNutrition.reduce((sum, n) => sum + n.protein, 0) / periodNutrition.length
+      : 0;
+    const nutritionScore = Math.min(Math.round((avgProtein / targetProtein) * 100), 100);
+
+    const progressList = await this.getProgressEntries();
+    const hasProgress = progressList.some(p => {
+      const pDate = new Date(p.date);
+      const daysDiff = (new Date().getTime() - pDate.getTime()) / (1000 * 3600 * 24);
+      return daysDiff <= 30;
+    });
+    const progressScore = hasProgress ? 100 : 50;
+
+    const fitnessScore = Math.round(
+      (consistencyScore * 0.35) + 
+      (workoutsScore * 0.35) + 
+      (nutritionScore * 0.20) + 
+      (progressScore * 0.10)
+    );
+
+    const goalCompletion = Math.round(
+      (consistencyScore * 0.5) + (workoutsScore * 0.5)
+    );
+
     const summary = {
       totalWorkouts: periodSessions.length,
       totalCalories: periodNutrition.reduce((sum, n) => sum + n.calories, 0),
-      avgProteinIntake: periodNutrition.length > 0
-        ? periodNutrition.reduce((sum, n) => sum + n.protein, 0) / periodNutrition.length
-        : 0,
-      consistencyScore: this.calculateConsistencyScore(periodSessions, logs),
+      avgProteinIntake: avgProtein,
+      consistencyScore,
       bestPerformingWorkout: this.getBestPerformingWorkout(periodSessions),
       weakestMuscleGroup: this.getWeakestMuscleGroup(periodSessions),
-      adherenceRate: this.calculateAdherenceRate(periodSessions, logs, startDate, endDate)
+      adherenceRate: this.calculateAdherenceRate(periodSessions, logs, startDate, endDate),
+      fitnessScore,
+      goalCompletion,
+      muscleFocus
     };
 
     const trends = {
-      weightChange: this.calculateWeightChange(logs, startDate, endDate),
+      weightChange: await this.calculateWeightChange(logs, startDate, endDate),
       strengthProgress: this.calculateStrengthProgress(periodSessions),
-      consistencyTrend: this.determineConsistencyTrend(logs)
+      consistencyTrend: this.determineConsistencyTrend(logs),
+      performanceHistory
     };
 
     const recommendations = this.generateRecommendations(summary, trends);
@@ -89,22 +221,31 @@ class AdaptiveTrainingService {
       endDate,
       summary,
       trends,
-      recommendations
+      recommendations,
+      caloriesProteinTrend,
+      durationTrend,
+      prs
     };
   }
 
   // Generate analytics comparison
   async generateComparison(currentPeriod: 'week' | 'month'): Promise<AnalyticsComparison> {
-    const sessions = this.getWorkoutSessions();
-    const logs = this.getDailyLogs();
+    const sessions = await this.getWorkoutSessions();
+    const logs = await this.getDailyLogs();
+    const nutrition = await this.getNutritionEntries();
+    const progressList = await this.getProgressEntries();
 
-    const current = this.getPeriodData(currentPeriod, 'current', sessions, logs);
-    const previous = this.getPeriodData(currentPeriod, 'previous', sessions, logs);
+    const current = await this.getPeriodData(currentPeriod, 'current', sessions, logs, nutrition, progressList);
+    const previous = await this.getPeriodData(currentPeriod, 'previous', sessions, logs, nutrition, progressList);
 
     const differences = {
-      workoutsChange: ((current.workouts - previous.workouts) / Math.max(previous.workouts, 1)) * 100,
-      caloriesChange: ((current.calories - previous.calories) / Math.max(previous.calories, 1)) * 100,
-      weightChange: current.avgWeight - previous.avgWeight,
+      workoutsChange: previous.workouts > 0 
+        ? ((current.workouts - previous.workouts) / previous.workouts) * 100 
+        : (current.workouts > 0 ? 100 : 0),
+      caloriesChange: previous.calories > 0 
+        ? ((current.calories - previous.calories) / previous.calories) * 100 
+        : (current.calories > 0 ? 100 : 0),
+      weightChange: parseFloat((current.avgWeight - previous.avgWeight).toFixed(1)),
       consistencyChange: current.consistency - previous.consistency
     };
 
@@ -117,19 +258,19 @@ class AdaptiveTrainingService {
 
   // Generate progress export data
   async generateProgressExport(profile: UserProfile, period: string): Promise<ProgressExport> {
-    const sessions = this.getWorkoutSessions();
-    const logs = this.getDailyLogs();
+    const sessions = await this.getWorkoutSessions();
+    const logs = await this.getDailyLogs();
 
     const achievements = this.getAchievements(sessions, logs);
     const stats = {
       totalWorkouts: sessions.length,
-      totalWeightLost: this.calculateTotalWeightLost(logs),
+      totalWeightLost: await this.calculateTotalWeightLost(),
       bestStreak: this.calculateBestStreak(logs),
       avgConsistency: this.calculateAverageConsistency(logs)
     };
 
     const charts = {
-      weightProgress: this.generateWeightProgressChart(logs),
+      weightProgress: await this.generateWeightProgressChart(),
       workoutFrequency: this.generateWorkoutFrequencyChart(sessions),
       muscleGroupProgress: this.generateMuscleGroupProgressChart(sessions)
     };
@@ -147,7 +288,15 @@ class AdaptiveTrainingService {
   }
 
   // Private helper methods
-  private getWorkoutSessions(): WorkoutSession[] {
+  private async getWorkoutSessions(): Promise<WorkoutSession[]> {
+    const uid = auth.currentUser?.uid;
+    if (uid) {
+      try {
+        return await firestoreService.getWorkoutSessions(uid);
+      } catch (e) {
+        console.error('Failed to fetch sessions from Firestore:', e);
+      }
+    }
     try {
       return JSON.parse(localStorage.getItem('iron_ai_sessions') || '[]');
     } catch {
@@ -155,18 +304,53 @@ class AdaptiveTrainingService {
     }
   }
 
-  private getNutritionEntries(): NutritionEntry[] {
+  private async getNutritionEntries(): Promise<NutritionEntry[]> {
+    const uid = auth.currentUser?.uid;
+    if (uid) {
+      try {
+        return await firestoreService.getNutritionEntries(uid);
+      } catch (e) {
+        console.error('Failed to fetch nutrition from Firestore:', e);
+      }
+    }
     try {
-      return JSON.parse(localStorage.getItem('iron_ai_nutrition') || '[]');
+      const local1 = JSON.parse(localStorage.getItem('nutrition_entries') || '[]');
+      const local2 = JSON.parse(localStorage.getItem('iron_ai_nutrition') || '[]');
+      const merged = [...local1];
+      local2.forEach((item: any) => {
+        if (!merged.some(m => m.id === item.id)) {
+          merged.push(item);
+        }
+      });
+      return merged;
     } catch {
       return [];
     }
   }
 
-  private getDailyLogs(): DailyLog[] {
+  private async getDailyLogs(): Promise<DailyLog[]> {
+    const uid = auth.currentUser?.uid;
+    if (uid) {
+      try {
+        return await firestoreService.getDailyLogs(uid);
+      } catch (e) {
+        console.error('Failed to fetch daily logs from Firestore:', e);
+      }
+    }
     try {
       return JSON.parse(localStorage.getItem('iron_ai_logs') || '[]');
     } catch {
+      return [];
+    }
+  }
+
+  // Public helper method so Leo AI can retrieve progress history
+  async getProgressHistory(uid: string): Promise<ProgressEntry[]> {
+    if (!uid) return [];
+    try {
+      return await firestoreService.getProgressEntries(uid);
+    } catch (e) {
+      console.error('Failed to get progress history for AI:', e);
       return [];
     }
   }
@@ -311,12 +495,17 @@ class AdaptiveTrainingService {
     return Math.round((completed / periodLogs.length) * 100);
   }
 
-  private calculateWeightChange(logs: DailyLog[], startDate: string, endDate: string): number {
-    const periodLogs = logs.filter(log => log.date >= startDate && log.date <= endDate);
-    if (periodLogs.length < 2) return 0;
-
-    // This would need actual weight tracking - for now return mock data
-    return -0.5; // kg lost
+  private async calculateWeightChange(logs: DailyLog[], startDate: string, endDate: string): Promise<number> {
+    const progressList = await this.getProgressEntries();
+    const periodProgress = progressList
+      .filter(p => p.date >= startDate && p.date <= endDate)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    if (periodProgress.length < 2) return 0;
+    
+    const earliest = periodProgress[0].weight;
+    const latest = periodProgress[periodProgress.length - 1].weight;
+    return parseFloat((latest - earliest).toFixed(1));
   }
 
   private calculateStrengthProgress(sessions: WorkoutSession[]): number {
@@ -377,11 +566,13 @@ class AdaptiveTrainingService {
     return recommendations;
   }
 
-  private getPeriodData(
+  private async getPeriodData(
     period: 'week' | 'month',
     type: 'current' | 'previous',
     sessions: WorkoutSession[],
-    logs: DailyLog[]
+    logs: DailyLog[],
+    nutrition: NutritionEntry[],
+    progressList: ProgressEntry[]
   ) {
     const now = new Date();
     let startDate = new Date();
@@ -410,15 +601,26 @@ class AdaptiveTrainingService {
 
     const periodSessions = sessions.filter(s => s.date >= startStr && s.date <= endStr);
     const periodLogs = logs.filter(l => l.date >= startStr && l.date <= endStr);
+    const periodNutrition = nutrition.filter(n => {
+      const nDate = n.date || new Date(n.timestamp).toISOString().split('T')[0];
+      return nDate >= startStr && nDate <= endStr;
+    });
+
+    const calories = periodNutrition.reduce((sum, n) => sum + (n.calories || 0), 0);
+
+    const periodProgress = progressList.filter(p => p.date >= startStr && p.date <= endStr);
+    const avgWeight = periodProgress.length > 0
+      ? periodProgress.reduce((sum, p) => sum + p.weight, 0) / periodProgress.length
+      : (progressList.length > 0 ? progressList[0].weight : 70);
 
     return {
       startDate: startStr,
       endDate: endStr,
       workouts: periodSessions.length,
-      calories: periodSessions.reduce((sum, s) => sum + (s.duration * 8), 0), // Rough estimate
-      avgWeight: 70, // Mock data - would need weight tracking
+      calories,
+      avgWeight: parseFloat(avgWeight.toFixed(1)),
       consistency: periodLogs.length > 0
-        ? (periodLogs.filter(l => l.workoutCompleted).length / periodLogs.length) * 100
+        ? Math.round((periodLogs.filter(l => l.workoutCompleted).length / periodLogs.length) * 100)
         : 0
     };
   }
@@ -440,9 +642,13 @@ class AdaptiveTrainingService {
     return achievements;
   }
 
-  private calculateTotalWeightLost(logs: DailyLog[]): number {
-    // Mock calculation - would need actual weight tracking
-    return 2.5;
+  private async calculateTotalWeightLost(): Promise<number> {
+    const progressList = await this.getProgressEntries();
+    if (progressList.length < 2) return 0;
+    const sorted = [...progressList].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const earliest = sorted[0].weight;
+    const latest = sorted[sorted.length - 1].weight;
+    return parseFloat((earliest - latest).toFixed(1));
   }
 
   private calculateBestStreak(logs: DailyLog[]): number {
@@ -467,16 +673,14 @@ class AdaptiveTrainingService {
     return (completed / logs.length) * 100;
   }
 
-  private generateWeightProgressChart(logs: DailyLog[]): any[] {
-    // Mock weight progress data
-    return [
-      { date: 'Jan', weight: 75 },
-      { date: 'Feb', weight: 74.5 },
-      { date: 'Mar', weight: 73.8 },
-      { date: 'Apr', weight: 73.2 },
-      { date: 'May', weight: 72.8 },
-      { date: 'Jun', weight: 72.5 }
-    ];
+  private async generateWeightProgressChart(): Promise<any[]> {
+    const progressList = await this.getProgressEntries();
+    return progressList
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .map(p => ({
+        month: new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        weight: p.weight
+      }));
   }
 
   private generateWorkoutFrequencyChart(sessions: WorkoutSession[]): any[] {
@@ -522,6 +726,17 @@ class AdaptiveTrainingService {
     }
 
     return insights;
+  }
+  private async getProgressEntries(): Promise<ProgressEntry[]> {
+    const uid = auth.currentUser?.uid;
+    if (uid) {
+      try {
+        return await firestoreService.getProgressEntries(uid);
+      } catch (e) {
+        console.error('Failed to fetch progress entries in AdaptiveTraining:', e);
+      }
+    }
+    return [];
   }
 }
 

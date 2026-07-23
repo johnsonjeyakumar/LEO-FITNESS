@@ -3,12 +3,19 @@ import { WorkoutPlan } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 interface Props {
-    plan: WorkoutPlan;
+    plan: WorkoutPlan | null;
 }
 
 const COLORS = ['#ff5e00', '#fbbf24', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f97316'];
 
 const WorkoutChart: React.FC<Props> = ({ plan }) => {
+    if (!plan) {
+        return (
+            <div className="bg-card border border-white/5 rounded-xl p-6 text-center text-gray-500">
+                <p className="text-sm">Generate a workout plan to see analytics</p>
+            </div>
+        );
+    }
     // Calculate muscle group distribution
     const muscleGroupData = plan.schedule.reduce((acc, day) => {
         day.exercises.forEach(exercise => {
